@@ -21,7 +21,7 @@ async fn fetch_grades(cookie: String) -> Result<serde_json::Value, String> {
         .map_err(|e| e.to_string())?;
 
     let status = response.status();
-    let headers = response.headers().clone();  // 克隆头信息
+    let _headers = response.headers().clone();  // 克隆头信息
     
     // 先处理响应内容
     if status.is_success() {
@@ -36,9 +36,29 @@ async fn fetch_grades(cookie: String) -> Result<serde_json::Value, String> {
         Err(format!("HTTP {}: {}", status, text))
     }
 }
+
+#[tauri::command]
+async fn fetch_grades2(cookie: String, url: String) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    
+    match client.post(&url)
+        .header("Cookie", cookie)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0")
+        .header("Content-Length", "0")
+        .send()
+        .await
+    {
+        Ok(res) => {
+            let text = res.text().await.map_err(|e| e.to_string())?;
+            Ok(text)
+        }
+        Err(e) => Err(e.to_string())
+    }
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![fetch_grades]) // 注册命令
+        .invoke_handler(tauri::generate_handler![fetch_grades,fetch_grades2]) // 注册命令
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
