@@ -1,6 +1,10 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use serde::{Serialize, Deserialize};  // 解决 `Serialize` 和 `Deserialize` 未找到的问题
+use serde_json::Value;  // 解决 `Value` 未找到的问题
+use reqwest;
+
 #[tauri::command]
 async fn fetch_grades(cookie: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder()
@@ -37,6 +41,15 @@ async fn fetch_grades(cookie: String) -> Result<serde_json::Value, String> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)] // 添加 Serialize
+struct Grade {
+    XNXQDM_DISPLAY: String,
+    XSKCM: String,
+    KCXZDM_DISPLAY: String,
+    XSZCJMC: String,
+    XF: String,
+}
+
 #[tauri::command]
 async fn fetch_grades2(cookie: String, url: String) -> Result<String, String> {
     let client = reqwest::Client::new();
@@ -50,7 +63,25 @@ async fn fetch_grades2(cookie: String, url: String) -> Result<String, String> {
     {
         Ok(res) => {
             let text = res.text().await.map_err(|e| e.to_string())?;
-            Ok(text)
+            let json_data: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+
+            let mut grades_list: Vec<Grade> = Vec::new();
+
+            if let Some(rows) = json_data["datas"]["xscjcx"]["rows"].as_array() {
+                for row in rows {
+                    let grade = Grade {
+                        XNXQDM_DISPLAY: row["XNXQDM_DISPLAY"].as_str().unwrap_or("").to_string(),
+                        XSKCM: row["XSKCM"].as_str().unwrap_or("").to_string(),
+                        KCXZDM_DISPLAY: row["KCXZDM_DISPLAY"].as_str().unwrap_or("").to_string(),
+                        XSZCJMC: row["XSZCJMC"].as_str().unwrap_or("").to_string(),
+                        XF: row["XF"].as_str().unwrap_or("").to_string(),
+                    };
+                    grades_list.push(grade);
+                }
+            }
+
+            let result_json = serde_json::to_string(&grades_list).map_err(|e| e.to_string())?;
+            Ok(result_json)
         }
         Err(e) => Err(e.to_string())
     }
