@@ -74,40 +74,37 @@
 <script setup>
 import { invoke } from "@tauri-apps/api/core";
 import { ref, computed, watch, onMounted } from "vue";
-// 导入 Tauri 的路径插件
-import { appDataDir, join } from '@tauri-apps/plugin-path';
-// 导入文件系统 API
-import { exists, readTextFile, removeFile, writeTextFile, createDir } from '@tauri-apps/plugin-fs';
+// import { exists, create, BaseDirectory } from '@tauri-apps/plugin-fs';
+// import * as path from '@tauri-apps/api/path';
+
 
 const cookie = ref("");
 const grades = ref([]);
 
-onMounted(async () => {
-  try {
-    // 获取应用数据目录
-    const dataDir = await appDataDir();
-    // 构建 grades.json 的路径
-    const gradesPath = join(dataDir, 'grades.json');
+// onMounted(async () => {
+//   try {
+//     const home = await path.homeDir();
+//     const gradesPath=await path.join(home, 'appData/grades.json');
 
-    // 检查文件是否存在
-    if (await exists(gradesPath)) {
-      // 读取文件内容
-      const contents = await readTextFile(gradesPath);
-      try {
-        // 解析 JSON 数据
-        const parsed = JSON.parse(contents);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          grades.value = parsed;
-        }
-      } catch (e) {
-        console.error('本地数据损坏，已忽略');
-        await removeFile(gradesPath); // 删除损坏文件
-      }
-    }
-  } catch (error) {
-    console.error('本地缓存加载失败:', error);
-  }
-});
+//     // 检查文件是否存在
+//     if (await exists(gradesPath)) {
+//       // 读取文件内容
+//       const contents = await readTextFile(gradesPath);
+//       try {
+//         // 解析 JSON 数据
+//         const parsed = JSON.parse(contents);
+//         if (Array.isArray(parsed) && parsed.length > 0) {
+//           grades.value = parsed;
+//         }
+//       } catch (e) {
+//         console.error('本地数据损坏，已忽略');
+//         await removeFile(gradesPath); // 删除损坏文件
+//       }
+//     }
+//   } catch (error) {
+//     console.log('本地缓存加载失败:', error);
+//   }
+// });
 
 // 获取成绩
 async function fetchGrades2() {
@@ -176,7 +173,7 @@ async function fetchGrades2() {
       `成功加载 ${courseCount} 门课程，总学分 ${creditSum.toFixed(1)}`
     );
 
-    await saveGradesToLocal(grades.value);
+    //await saveGradesToLocal(grades.value);
   } catch (error) {
     console.error("请求失败:", error);
     // 可视化错误提示
@@ -189,7 +186,7 @@ async function fetchGrades2() {
 async function saveGradesToLocal(data) {
   try {
     const dataDir = await appDataDir();
-    const gradesDir = await join(dataDir, "seu-utils-data");
+    const gradesDir = await join(dataDir, "appData");
     const gradesPath = await join(gradesDir, "grades.json");
 
     // 确保目录存在
@@ -204,6 +201,93 @@ async function saveGradesToLocal(data) {
     console.error("本地保存失败:", error);
   }
 }
+
+// 新增的响应式数据
+const selectedTerms = ref([]);
+const selectedTypes = ref(['必修', '限选']);
+
+// 获取所有学期选项（需在获取数据后执行）
+const termOptions = computed(() => {
+  return [...new Set(grades.value.map(g => g.XNXQDM_DISPLAY))];
+});
+
+// 获取所有课程类型选项
+const typeOptions = computed(() => {
+  return [...new Set(grades.value.map(g => g.KCXZDM_DISPLAY))];
+});
+
+// 筛选后的成绩数据
+const filteredGrades = computed(() => {
+  return grades.value.filter(grade => {
+    const termMatch = selectedTerms.value.length === 0 
+      || selectedTerms.value.includes(grade.XNXQDM_DISPLAY);
+    const typeMatch = selectedTypes.value.includes(grade.KCXZDM_DISPLAY);
+    return termMatch && typeMatch;
+  });
+});
+
+// 在获取数据后初始化选中项
+watch(grades, (newVal) => {
+  if(newVal.length > 0) {
+    selectedTerms.value = [...termOptions.value];
+  }
+});
+
+const selectedFilteredGrades = computed(() => 
+  filteredGrades.value.filter(grade => grade.selected)
+);
+
+// 添加绩点计算函数
+const gpaInfo = computed(() => {
+  let totalPoints = 0;
+  let totalCredits = 0;
+
+  selectedFilteredGrades.value.forEach(grade => {
+    // 成绩处理逻辑
+    const score = grade.XSZCJMC; // 假设成绩是数值类型
+    const credit = parseFloat(grade.XF); // 学分
+    let point=0;//绩点
+
+    // 等级制成绩判断
+    if (isNaN(score)) {
+      switch (score.trim()) {
+        case '优': point = 4.5; break;
+        case '良': point = 3.5; break;
+        case '中': point = 2.5; break;
+        case '及格': point = 1.5; break;
+        case '不及格': point = 0; break;
+        default: return; // 忽略无法识别的等级
+      }
+    } else {
+      // 数值型成绩转换
+      const numericScore = parseFloat(score);
+      if (numericScore >= 96) point = 4.8;
+      else if (numericScore >= 93) point = 4.5;
+      else if (numericScore >= 90) point = 4.0;
+      else if (numericScore >= 86) point = 3.8;
+      else if (numericScore >= 83) point = 3.5;
+      else if (numericScore >= 80) point = 3.0;
+      else if (numericScore >= 76) point = 2.8;
+      else if (numericScore >= 73) point = 2.5;
+      else if (numericScore >= 70) point = 2.0;
+      else if (numericScore >= 66) point = 1.8;
+      else if (numericScore >= 63) point = 1.5;
+      else if (numericScore >= 60) point = 1.0;
+      else point = 0;
+    }
+
+    if (!isNaN(credit)) {
+      totalPoints += credit * point;
+      totalCredits += credit;
+    }
+  });
+
+  // 处理除零错误并保留两位小数
+  return {gpa:totalCredits > 0 
+    ? (totalPoints / totalCredits).toFixed(4)
+    : '0.0000',
+    finalCredits:totalCredits}
+});
 
 // 重置数据
 function resetData() {
