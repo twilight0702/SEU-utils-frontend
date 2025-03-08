@@ -1,0 +1,348 @@
+<template>
+  <div id="app">
+    <div class="game-board">
+      <div class="grid">
+        <div
+          v-for="tile in tiles"
+          :key="tile.position"
+          class="tile"
+          :class="tileClass(tile)"
+        >
+          <span>{{ tile.value === 0 ? "" : tile.value }}</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button @click="moveLeft">Left</button>
+        <button @click="moveRight">Right</button>
+        <button @click="moveUp">Up</button>
+        <button @click="moveDown">Down</button>
+      </div>
+      <div class="info">
+        <p>Score: {{ score }}</p>
+        <button @click="resetGame">Restart</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { ref, onMounted, onUnmounted } from "vue";
+
+export default {
+  setup() {
+    const size = ref(4);
+    const tiles = ref(
+      Array(16)
+        .fill(0)
+        .map((_, index) => ({
+          value: 0,
+          position: index,
+        }))
+    );
+    const score = ref(0);
+
+    const isGameOver =ref(false);
+    const tileClass = (tile) => {
+      return `tile-${tile.value}`;
+    };
+
+    const generateTile = () => {
+      let emptyTiles = tiles.value.filter((tile) => tile.value === 0);
+      if (emptyTiles.length > 0) {
+        let randomTile =
+          emptyTiles[Math.floor(Math.random() * emptyTiles.length)];
+        randomTile.value = Math.random() > 0.5 ? 2 : 4;
+      }
+    };
+
+    const resetGame = () => {
+      tiles.value = Array(16)
+        .fill(0)
+        .map((_, index) => ({
+          value: 0,
+          position: index,
+        }));
+      score.value = 0;
+        isGameOver.value = false;
+      generateTile();
+      generateTile();
+    };
+
+    const moveLeft = () => {
+      shiftTiles("left");
+    };
+
+    const moveRight = () => {
+      shiftTiles("right");
+    };
+
+    const moveUp = () => {
+      shiftTiles("up");
+    };
+
+    const moveDown = () => {
+      shiftTiles("down");
+    };
+
+    const shiftTiles = (direction) => {
+        isGameOver.value = true;
+      console.log("before:", tiles.value);
+      let moved = false;
+      //改成使用纯数字数组进行计算，最后再放回响应数组，避免操作position
+      let tempTiles = [];
+      for (let i = 0; i < tiles.value.length; i++) {
+        tempTiles.push(tiles.value[i].value);
+      }
+      let start = tempTiles;
+      console.log("beforeValue:", tempTiles);
+
+      // Rotate the tiles to simplify the movement logic (only shift left)
+      if (direction === "right" || direction === "left") {
+        if (direction === "right") {
+          tempTiles = tempTiles.reverse();
+        }
+        for (let row = 0; row < size.value; row++) {
+          let start = row * size.value;
+          let rowTiles = tempTiles.slice(start, start + size.value);
+          if (rowTiles) {
+            let newRow = mergeTiles(rowTiles);
+            tempTiles.splice(start, size.value, ...newRow);
+          }
+        }
+        if (direction === "right") {
+          tempTiles = tempTiles.reverse();
+        }
+      } else {
+        let transposedTiles = transpose(tempTiles);
+        if (direction === "down") {
+          transposedTiles = transposedTiles.reverse();
+        }
+        for (let col = 0; col < size.value; col++) {
+          let start = col * size.value;
+          let colTiles = transposedTiles.slice(start, start + size.value);
+          if (colTiles) {
+            let newCol = mergeTiles(colTiles);
+            transposedTiles.splice(start, size.value, ...newCol);
+          }
+        }
+        if (direction === "down") {
+          transposedTiles = transposedTiles.reverse();
+        }
+        tempTiles = transpose(transposedTiles);
+      }
+
+      console.log("处理后的value:", tempTiles);
+
+      for (let i = 0; i < tiles.value.length; i++) {
+        tiles.value[i].value = tempTiles[i];
+      }
+
+      console.log("处理后的Tiles:", tiles.value);
+
+      checkGameOver();
+      generateTile();
+      
+
+      console.log("after:", tiles.value);
+    };
+
+    const mergeTiles = (tiles) => {
+      console.log("before merge:", tiles);
+      let mergedTiles = [];
+
+      // Merge the tiles
+      for (let i = 0; i < tiles.length; i++) {
+        if (tiles[i] === 0) {
+          console.log("空位0跳过");
+          continue;
+        }
+        if (i + 1 < tiles.length && tiles[i] === tiles[i + 1]) {
+          console.log("相同合并", tiles[i], tiles[i + 1]);
+          mergedTiles.push(tiles[i] * 2);
+          score.value += tiles[i] * 2;
+          i++; //跳过下一个元素
+        } else {
+          console.log("不同正常放入", tiles[i]);
+          mergedTiles.push(tiles[i]);
+        }
+      }
+
+      //如果不足，在末尾填充0
+      while (mergedTiles.length < size.value) {
+        mergedTiles.push(0);
+        console.log("填充空位0");
+      }
+
+      // 判断是否发生变化，如果有变化则继续递归合并
+      let tilesChanged = false;
+      for (let i = 0; i < tiles.length; i++) {
+        if (mergedTiles[i] !== tiles[i]) {
+          tilesChanged = true;
+          break;
+        }
+      }
+
+      // 如果有变化，则继续合并
+      if (tilesChanged) {
+        isGameOver.value = false;
+        return mergeTiles(mergedTiles);
+      } else {
+        return mergedTiles;
+      }
+    };
+
+    const transpose = (matrix) => {
+      console.log("before transpose:", matrix);
+      if (!Array.isArray(matrix)) {
+        console.error("Invalid matrix for transpose:", matrix);
+        return [];
+      }
+
+      // Step 1: Convert the flat array into a 2D array (matrix)
+      let twoDArray = [];
+      for (let i = 0; i < matrix.length; i += size.value) {
+        twoDArray.push(matrix.slice(i, i + size.value));
+      }
+      console.log("in transpose:", twoDArray);
+
+      // Step 2: Perform the transpose operation (swap rows and columns)
+      let transposedArray = [];
+      for (let col = 0; col < size.value; col++) {
+        for (let row = 0; row < twoDArray.length; row++) {
+          transposedArray.push(twoDArray[row][col]);
+        }
+      }
+      console.log("after transpose:", transposedArray);
+
+      return transposedArray;
+    };
+
+    const checkGameOver = () => {
+        let emptyTiles = tiles.value.filter((tile) => tile.value === 0);
+        if (emptyTiles.length > 0) {
+          return;
+        }
+        else if(isGameOver.value){
+        alert("Game Over!");
+        }
+    };
+
+    // 添加键盘事件监听器
+    const handleKeydown = (event) => {
+      switch (event.key) {
+        case "ArrowLeft":
+        case "a":
+          moveLeft();
+          break;
+        case "ArrowRight":
+        case "d":
+          moveRight();
+          break;
+        case "ArrowUp":
+        case "w":
+          moveUp();
+          break;
+        case "ArrowDown":
+        case "s":
+          moveDown();
+          break;
+      }
+    };
+
+    onMounted(() => {
+      resetGame();
+      window.addEventListener("keydown", handleKeydown); // 添加事件监听器
+    });
+
+    onUnmounted(() => {
+      window.removeEventListener("keydown", handleKeydown); // 移除事件监听器
+    });
+
+    return {
+      size,
+      tiles,
+      score,
+      tileClass,
+      generateTile,
+      resetGame,
+      moveLeft,
+      moveRight,
+      moveUp,
+      moveDown,
+      shiftTiles,
+      mergeTiles,
+      transpose,
+      checkGameOver,
+    };
+  },
+};
+</script>
+
+<style scoped>
+.game-board {
+  text-align: center;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 100px);
+  grid-gap: 10px;
+  margin: 20px auto;
+  justify-content: center;
+}
+.tile {
+  width: 100px;
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #ccc;
+  font-size: 20px;
+  font-weight: bold;
+  border-radius: 5px;
+  transition: all 0.2s ease;
+}
+.tile-2 {
+  background-color: #eee4da;
+}
+.tile-4 {
+  background-color: #ede0c8;
+}
+.tile-8 {
+  background-color: #f2b179;
+}
+.tile-16 {
+  background-color: #f59563;
+}
+.tile-32 {
+  background-color: #f67c5f;
+}
+.tile-64 {
+  background-color: #f65e3b;
+}
+.tile-128 {
+  background-color: #edcf72;
+}
+.tile-256 {
+  background-color: #edcc61;
+}
+.tile-512 {
+  background-color: #edc850;
+}
+.tile-1024 {
+  background-color: #edc53f;
+}
+.tile-2048 {
+  background-color: #edc22e;
+}
+.controls {
+  margin-top: 20px;
+}
+button {
+  padding: 10px;
+  margin: 5px;
+  font-size: 16px;
+}
+.info {
+  margin-top: 20px;
+}
+</style>
