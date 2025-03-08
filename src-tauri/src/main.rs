@@ -89,10 +89,15 @@ async fn fetch_grades2(cookie: String, url: String) -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+fn is_dev() -> bool {
+    cfg!(debug_assertions) // 如果是开发模式，返回 true
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![fetch_grades, fetch_grades2]) // 注册命令
+        .invoke_handler(tauri::generate_handler![fetch_grades, fetch_grades2,is_dev]) // 注册命令
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

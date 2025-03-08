@@ -2,11 +2,66 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
+  "allowlist": {
+    "fs": {
+      "readFile": true,
+      "writeFile": true,
+      "readDir": true,
+      "createDir": true,
+      "removeFile": true,
+      "exists": true
+    },
+    "path": {
+      "allowJoin": true,
+      "allow": [
+        "$APPDATA/*",
+        "$EXE/*",
+        "$EXE/*",
+        "$DOCUMENT/*",
+        "$DESKTOP/*",
+        "$RESOURCE/*",
+        "$CARGO_TARGET_DIR/debug*"
+      ]
+    }
+  },
   "permissions": [
-    "core:default",
-    "fs:default"
+    "fs:default",
+    {
+      "identifier": "fs:allow-exe-write",
+      "allow": ["$EXE/*", "$APPDATA/*","$CARGO_TARGET_DIR/*"]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": ["$EXE/*", "$APPDATA/*","$CARGO_TARGET_DIR/*"]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": ["$EXE/*", "$APPDATA/*","$CARGO_TARGET_DIR/*"]
+    },
+    {
+      "identifier": "fs:allow-create",
+      "allow": ["$EXE/*", "$APPDATA/*","$CARGO_TARGET_DIR/*"]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": ["$EXE/*", "$APPDATA/*","$CARGO_TARGET_DIR/*"]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": ["$EXE/*", "$APPDATA/*","$CARGO_TARGET_DIR/*"]
+    },
+    {
+      "identifier": "core:path:allow-resolve-directory",
+      "allow": ["$EXE/*", "$APPDATA/*","$CARGO_TARGET_DIR/*"]
+    },
+    {
+      "identifier": "core:path:default",
+      "allow": ["$EXE/*", "$APPDATA/*","$CARGO_TARGET_DIR/*"]
+    },
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$APPDATA" }, { "path": "$APPDATA/**" }]
+    }
   ]
 }
