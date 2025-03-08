@@ -19,6 +19,7 @@
       </div>
       <div class="info">
         <p>Score: {{ score }}</p>
+        <p>Max-Score: {{ maxScore }}</p>
         <button @click="resetGame">Restart</button>
       </div>
     </div>
@@ -27,6 +28,14 @@
 
 <script>
 import { ref, onMounted, onUnmounted } from "vue";
+import {
+  readTextFile,
+  BaseDirectory,
+  exists,
+  writeTextFile,
+  mkdir,
+} from "@tauri-apps/plugin-fs";
+import * as path from "@tauri-apps/api/path";
 
 export default {
   setup() {
@@ -41,7 +50,7 @@ export default {
     );
     const score = ref(0);
 
-    const isGameOver =ref(false);
+    const isGameOver = ref(false);
     const tileClass = (tile) => {
       return `tile-${tile.value}`;
     };
@@ -63,7 +72,7 @@ export default {
           position: index,
         }));
       score.value = 0;
-        isGameOver.value = false;
+      isGameOver.value = false;
       generateTile();
       generateTile();
     };
@@ -85,7 +94,7 @@ export default {
     };
 
     const shiftTiles = (direction) => {
-        isGameOver.value = true;
+      isGameOver.value = true;
       console.log("before:", tiles.value);
       let moved = false;
       //改成使用纯数字数组进行计算，最后再放回响应数组，避免操作position
@@ -141,7 +150,6 @@ export default {
 
       checkGameOver();
       generateTile();
-      
 
       console.log("after:", tiles.value);
     };
@@ -218,13 +226,47 @@ export default {
     };
 
     const checkGameOver = () => {
-        let emptyTiles = tiles.value.filter((tile) => tile.value === 0);
-        if (emptyTiles.length > 0) {
-          return;
+      // 1. 检查是否有空格
+      let emptyTiles = tiles.value.some((tile) => tile.value === 0);
+      if (emptyTiles) return false; // 还有空格，游戏未结束
+
+      // 2. 检查是否有可合并的相邻格子
+      for (let i = 0; i < size.value; i++) {
+        for (let j = 0; j < size.value; j++) {
+          let currentTile = tiles.value[i * size.value + j];
+          // 检查右边
+          if (
+            j < size.value - 1 &&
+            currentTile.value === tiles.value[i * size.value + j + 1].value
+          ) {
+            return false; // 有可合并的格子，游戏未结束
+          }
+          // 检查下边
+          if (
+            i < size.value - 1 &&
+            currentTile.value === tiles.value[(i + 1) * size.value + j].value
+          ) {
+            return false; // 有可合并的格子，游戏未结束
+          }
         }
-        else if(isGameOver.value){
-        alert("Game Over!");
+      }
+
+      // 如果没有空格，且没有可以合并的格子，则游戏结束
+      alert("Game Over!");
+      //把成绩记入本地文件
+      (async () => {
+        const basePath = await path.appDataDir();
+        const dirPath = await path.join(basePath, "2048");
+        if (!(await exists(dirPath))) {
+          await mkdir(dirPath);
         }
+        const filePath = await path.join(dirPath, "2048-max-score.txt");
+
+        if (score.value > maxScore.value) {
+          maxScore.value = score.value;
+          await writeTextFile(filePath, maxScore.value.toString());
+        }
+      })();
     };
 
     // 添加键盘事件监听器
@@ -249,9 +291,35 @@ export default {
       }
     };
 
+    const maxScore = ref(0);
     onMounted(() => {
       resetGame();
       window.addEventListener("keydown", handleKeydown); // 添加事件监听器
+      //从文件读取最大分数
+      (async () => {
+        try {
+          const basePath = await path.appDataDir();
+          const dirPath = await path.join(basePath, "2048");
+
+          // 确保目录存在
+          if (!(await exists(dirPath))) {
+            await mkdir(dirPath, { recursive: true });
+          }
+
+          const filePath = await path.join(dirPath, "2048-max-score.txt");
+
+          // 检查文件存在性
+          if (!(await exists(filePath))) {
+            await writeTextFile(filePath, "0");
+          }
+
+          // 读取文件内容
+          const data = await readTextFile(filePath);
+          maxScore.value = parseInt(data) || 0;
+        } catch (error) {
+          console.error("文件操作失败:", error);
+        }
+      })();
     });
 
     onUnmounted(() => {
@@ -273,6 +341,7 @@ export default {
       mergeTiles,
       transpose,
       checkGameOver,
+      maxScore,
     };
   },
 };
