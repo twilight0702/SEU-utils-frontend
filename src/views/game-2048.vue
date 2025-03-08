@@ -1,28 +1,24 @@
 <template>
-  <div id="app">
-    <div class="game-board">
-      <div class="grid">
-        <div
-          v-for="tile in tiles"
-          :key="tile.position"
-          class="tile"
-          :class="tileClass(tile)"
-        >
-          <span>{{ tile.value === 0 ? "" : tile.value }}</span>
-        </div>
-      </div>
-      <div class="controls">
-        <button @click="moveLeft">Left</button>
-        <button @click="moveRight">Right</button>
-        <button @click="moveUp">Up</button>
-        <button @click="moveDown">Down</button>
-      </div>
-      <div class="info">
-        <p>Score: {{ score }}</p>
-        <p>Max-Score: {{ maxScore }}</p>
-        <button @click="resetGame">Restart</button>
+  <div class="game-board">
+    <router-link to="/" class="back-link">返回主页</router-link>
+    <div class="tip">Tip:使用键盘的上下左右进行游戏~</div>
+    <div class="grid">
+      <div
+        v-for="tile in tiles"
+        :key="tile.position"
+        class="tile"
+        :class="tileClass(tile)"
+      >
+        <span>{{ tile.value === 0 ? "" : tile.value }}</span>
       </div>
     </div>
+    <div class="info">
+      <p style="font-weight: bold; font-size: 30px">当前得分: {{ score }}</p>
+      <p style="font-weight: bold; font-size: 20px">
+        历史最高分: {{ maxScore }}
+      </p>
+    </div>
+    <button @click="resetGame" class="restart-button">重新开始</button>
   </div>
 </template>
 
@@ -348,6 +344,42 @@ export default {
 </script>
 
 <style scoped>
+.back-link {
+  padding: 8px 16px;
+  background: #69a197;
+  color: white;
+  border-radius: 4px;
+  font-weight: bold;
+  text-decoration: none;
+  transition: background 0.3s;
+}
+
+.back-link:hover {
+  background: #e5c94c;
+  color: #ffffff;
+}
+
+.tip {
+  margin-top: 20px;
+  color: gray;
+}
+.restart-button {
+  height: 50px;
+  padding: 8px 16px;
+  background: #69a197;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.restart-button:hover {
+  background: #e5c94c;
+  color: #ffffff;
+}
+
 .game-board {
   text-align: center;
 }
@@ -365,7 +397,7 @@ export default {
   justify-content: center;
   align-items: center;
   background-color: #ccc;
-  font-size: 20px;
+  font-size: 40px;
   font-weight: bold;
   border-radius: 5px;
   transition: all 0.2s ease;
@@ -413,5 +445,6 @@ button {
 }
 .info {
   margin-top: 20px;
+  margin-bottom: 10px;
 }
 </style>

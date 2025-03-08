@@ -1,5 +1,8 @@
 <template>
-  <h1>绩点计算器</h1>
+  <div class="header-container">
+    <div class="head">绩点计算器</div>
+    <router-link to="/" class="back-link"> 返回主页 </router-link>
+  </div>
   <div>
     <div v-if="grades.length == 0">
       <textarea
@@ -7,15 +10,49 @@
         class="InputCookie"
         v-model="cookie"
       ></textarea>
-      <button @click="fetchGrades2">确认</button>
+      <button @click="fetchGrades2" class="check-button">确认</button>
+      <div class="cookie-tip" @click="showTutorial = true">
+        不知道如何获取cookie?
+      </div>
     </div>
     <div class="filter-section" v-if="grades.length > 0">
       <div>
-        <button @click="resetData">重置数据</button>
-        <button @click="resetCookie">重新设置cookie</button>
+        <!-- 在模板最后添加tooltip元素 -->
+        <div
+          v-if="tooltip.visible"
+          class="tooltip"
+          :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
+        >
+          {{ tooltip.text }}
+        </div>
+
+        <!-- 修改重置按钮 -->
+        <button
+          @mouseenter.mouse="showTooltip('重置筛选条件和选中状态', $event)"
+          @mousemove="updatePosition"
+          @mouseleave="hideTooltip"
+          @click="resetData"
+          class="reset-button"
+        >
+          重置数据
+        </button>
+        <button
+          @mouseenter.mouse="
+            showTooltip(
+              '重新输入cookie爬取数据，注意会删除本地缓存数据',
+              $event
+            )
+          "
+          @mousemove="updatePosition"
+          @mouseleave="hideTooltip"
+          @click="resetCookie"
+          class="reset-button"
+        >
+          重新设置cookie
+        </button>
       </div>
       <div class="filter-group">
-        <h3>学期筛选：</h3>
+        <h3 style="font-weight: bold">学期筛选：</h3>
         <div class="checkbox-group">
           <label v-for="term in termOptions" :key="term">
             <input type="checkbox" v-model="selectedTerms" :value="term" />
@@ -25,7 +62,7 @@
       </div>
 
       <div class="filter-group">
-        <h3>课程类型：</h3>
+        <h3 style="font-weight: bold">课程类型：</h3>
         <div class="checkbox-group">
           <label v-for="type in typeOptions" :key="type">
             <input type="checkbox" v-model="selectedTypes" :value="type" />
@@ -65,23 +102,58 @@
       </table>
     </div>
     <div v-if="grades.length > 0" class="gpa-display">
-      <h3>平均绩点：{{ gpaInfo.gpa }}</h3>
-      <h3>总学分数：{{ gpaInfo.finalCredits }}</h3>
+      <h3 style="font-weight: bold">平均绩点：{{ gpaInfo.gpa }}</h3>
+      <h3 style="font-weight: bold">总学分数：{{ gpaInfo.finalCredits }}</h3>
     </div>
+    <transition name="modal">
+      <div
+        v-if="showTutorial"
+        class="modal-mask"
+        @click.self="showTutorial = false"
+      >
+        <transition name="modal-container">
+          <div class="modal-container">
+            <div class="modal-header">
+              <h2>如何获取Cookie？</h2>
+              <button @click="showTutorial = false" class="modal-close">
+                &times;
+              </button>
+            </div>
+            <div class="modal-content">
+              <ol>
+                <li>
+                  登录<a
+                    href="https://ehall.seu.edu.cn/new/index.html"
+                    target="_blank"
+                    >东南大学网上办事服务大厅</a
+                  >，进入成绩查询页面，按F12打开开发者工具
+                </li>
+                <li>切换到Network（网络）标签页</li>
+                <li>刷新页面，找到任意以.do结尾的请求</li>
+                <li>在Request Headers中找到Cookie字段</li>
+                <li>
+                  复制整个Cookie值粘贴到输入框（注意不能有遗漏也不能有额外的换行和字符）
+                </li>
+              </ol>
+            </div>
+          </div>
+        </transition>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup>
 import { invoke } from "@tauri-apps/api/core";
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, reactive } from "vue";
 import {
   exists,
   readTextFile,
   remove,
   writeTextFile,
-  mkdir
+  mkdir,
 } from "@tauri-apps/plugin-fs";
-import { join, appDataDir } from '@tauri-apps/api/path';
+import { join, appDataDir } from "@tauri-apps/api/path";
 import * as path from "@tauri-apps/api/path";
 
 const cookie = ref("");
@@ -119,9 +191,13 @@ onMounted(async () => {
 });
 // 获取成绩
 async function fetchGrades2() {
+  if (cookie.value.trim() == "") {
+    alert("请输入cookie!");
+    return;
+  }
   try {
     const response = await invoke("fetch_grades2", {
-      cookie: cookie.value,
+      cookie: cookie.value.trim(),
       url: "https://ehall.seu.edu.cn/jwapp/sys/cjcx/modules/cjcx/xscjcx.do",
     });
 
@@ -336,9 +412,106 @@ const gpaInfo = computed(() => {
     finalCredits: totalCredits,
   };
 });
+
+// 新增tooltip相关逻辑
+const tooltip = reactive({
+  visible: false,
+  text: "",
+  x: 0,
+  y: 0,
+  timeoutId: null,
+});
+
+// 更新鼠标位置
+const updatePosition = (e) => {
+  tooltip.x = e.clientX + 15;
+  tooltip.y = e.clientY + 15;
+};
+
+// 显示提示（带300ms延迟）
+const showTooltip = (text, e) => {
+  tooltip.timeoutId = setTimeout(() => {
+    tooltip.visible = true;
+    updatePosition(e);
+    tooltip.text = text;
+  }, 300);
+};
+
+// 隐藏提示
+const hideTooltip = () => {
+  clearTimeout(tooltip.timeoutId);
+  tooltip.visible = false;
+};
+
+// 添加响应式状态
+const showTutorial = ref(false);
 </script>
 
-<style>
+<style scoped>
+/* 新增容器样式 */
+.header-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+/* 保持原有标题样式 */
+.head {
+  font-size: 40px;
+  margin: 0; /* 移除默认margin */
+  font-weight: bold;
+}
+
+/* 新增返回按钮样式 */
+.back-link {
+  padding: 8px 16px;
+  background: #69a197;
+  color: white;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 0.3s;
+}
+
+.back-link:hover {
+  background: #e5c94c;
+  color: #ffffff;
+}
+
+.check-button {
+  font-size: 15px;
+  width: 100px;
+  padding: 5px;
+  margin-right: 20px;
+  background-color: #69a197;
+  color: white;
+  transition: background 0.3s;
+  border-radius: 4px;
+  border: none;
+  position: relative;
+  top: -50px; /* 向上移动10像素，数值可调 */
+}
+
+.check-button:hover {
+  background: #e5c94c;
+}
+
+.reset-button {
+  font-size: 15px;
+  min-width: 50px;
+  padding: 5px;
+  margin-right: 20px;
+  color: #69a197;
+  transition: background 0.3s;
+  border-radius: 4px;
+  border: none;
+}
+
+.reset-button:hover {
+  background: #eae2be;
+}
+
 .InputCookie {
   height: 100px;
   width: 500px;
@@ -347,6 +520,41 @@ const gpaInfo = computed(() => {
   overflow-wrap: break-word;
   overflow-y: auto;
   resize: none;
+  border-radius: 5px;
+}
+
+.filter-group {
+  margin: 10px;
+}
+
+/* 调整复选框组容器 */
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px; /* 元素间统一间距 */
+  margin: 8px 0; /* 上下留白 */
+}
+
+/* 调整每个选项标签 */
+.checkbox-group label {
+  display: inline-flex;
+  align-items: center;
+  margin: 4px 8px; /* 上下4px 左右8px */
+  padding: 6px 12px; /* 内边距 */
+  background: #f5f5f5;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+/* 悬停效果 */
+.checkbox-group label:hover {
+  background: #eaeaea;
+}
+
+/* 复选框间距 */
+.checkbox-group input[type="checkbox"] {
+  margin-right: 6px; /* 复选框与文字间距 */
+  transform: scale(1.1);
 }
 
 .table-container {
@@ -386,5 +594,141 @@ th {
 
 tr:hover {
   background-color: #f5f5f5;
+}
+
+/* 添加tooltip样式 */
+.tooltip {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: tooltipFade 0.2s ease-out;
+}
+
+@keyframes tooltipFade {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*以下是指导获取cookie的教程的样式 */
+.modal-mask {
+  /* 原有样式保持不变 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-container {
+  /* 原有样式保持不变 */
+  background: white;
+  border-radius: 8px;
+  width: 600px;
+  max-width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px;
+  position: relative;
+}
+
+/* 修改蒙层动画 */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+/* 修改容器动画 */
+/* 修改动画样式 */
+.modal-enter-active .modal-container,
+.modal-leave-active .modal-container {
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+.modal-enter-from .modal-container,
+.modal-leave-to .modal-container {
+  transform: scale(0.8) translateY(20px);
+  opacity: 0;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+/* 添加尺寸变化的过渡属性 */
+.modal-container {
+  transition: transform 0.3s ease, opacity 0.3s ease, max-height 0.3s ease;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-close {
+  font-size: 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+}
+
+.modal-content {
+  line-height: 1.6;
+}
+
+.cookie-tip {
+  color: #69a197;
+  cursor: pointer;
+  margin: 10px 0;
+  text-decoration: underline;
+}
+
+.cookie-tip:hover {
+  color: #4d8077;
+}
+
+.demo-image {
+  width: 100%;
+  margin-top: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+ol {
+  padding-left: 20px;
+}
+
+li {
+  margin-bottom: 10px;
 }
 </style>
