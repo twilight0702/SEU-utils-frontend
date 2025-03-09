@@ -35,22 +35,25 @@ import * as path from "@tauri-apps/api/path";
 
 export default {
   setup() {
-    const size = ref(4);
+    const size = ref(4); //矩阵大小
     const tiles = ref(
       Array(16)
         .fill(0)
         .map((_, index) => ({
           value: 0,
           position: index,
-        }))
+        })) //数组存储表格中的所有方块，具有值和位置（唯一标识用于表单渲染）
     );
-    const score = ref(0);
+    const score = ref(0); //总得分
 
-    const isGameOver = ref(false);
+    const isGameOver = ref(false); //游戏是否结束
+
+    //配置每一个数字方块的class
     const tileClass = (tile) => {
       return `tile-${tile.value}`;
     };
 
+    //在空白区域随机生成一个数字方块（2或4）
     const generateTile = () => {
       let emptyTiles = tiles.value.filter((tile) => tile.value === 0);
       if (emptyTiles.length > 0) {
@@ -60,6 +63,7 @@ export default {
       }
     };
 
+    //重新开始游戏（重置棋盘并随机生成两个数字方块）
     const resetGame = () => {
       tiles.value = Array(16)
         .fill(0)
@@ -89,72 +93,72 @@ export default {
       shiftTiles("down");
     };
 
+    //核心移动逻辑
     const shiftTiles = (direction) => {
-      isGameOver.value = true;
+      isGameOver.value = true; // 假设游戏结束，若有移动则继续游戏
+
       console.log("before:", tiles.value);
-      let moved = false;
-      //改成使用纯数字数组进行计算，最后再放回响应数组，避免操作position
-      let tempTiles = [];
-      for (let i = 0; i < tiles.value.length; i++) {
-        tempTiles.push(tiles.value[i].value);
-      }
-      let start = tempTiles;
+
+      // 取出纯值数组，避免操作 position
+      let tempTiles = tiles.value.map((tile) => tile.value);
       console.log("beforeValue:", tempTiles);
 
-      // Rotate the tiles to simplify the movement logic (only shift left)
-      if (direction === "right" || direction === "left") {
-        if (direction === "right") {
-          tempTiles = tempTiles.reverse();
-        }
-        for (let row = 0; row < size.value; row++) {
-          let start = row * size.value;
-          let rowTiles = tempTiles.slice(start, start + size.value);
-          if (rowTiles) {
-            let newRow = mergeTiles(rowTiles);
-            tempTiles.splice(start, size.value, ...newRow);
-          }
-        }
-        if (direction === "right") {
-          tempTiles = tempTiles.reverse();
-        }
-      } else {
-        let transposedTiles = transpose(tempTiles);
-        if (direction === "down") {
-          transposedTiles = transposedTiles.reverse();
-        }
-        for (let col = 0; col < size.value; col++) {
-          let start = col * size.value;
-          let colTiles = transposedTiles.slice(start, start + size.value);
-          if (colTiles) {
-            let newCol = mergeTiles(colTiles);
-            transposedTiles.splice(start, size.value, ...newCol);
-          }
-        }
-        if (direction === "down") {
-          transposedTiles = transposedTiles.reverse();
-        }
-        tempTiles = transpose(transposedTiles);
+      // 判断是否需要转置，左右直接处理，上下先转置
+      let needTranspose = direction === "up" || direction === "down";
+      if (needTranspose) {
+        tempTiles = transpose(tempTiles);
+      }
+
+      // 处理方向：左/上无需反转，右/下需要先反转
+      let reverseNeeded = direction === "right" || direction === "down";
+      if (reverseNeeded) {
+        tempTiles.reverse();
+      }
+
+      // 逐行（或逐列）处理合并逻辑
+      tempTiles = processTiles(tempTiles);
+
+      // 处理后如果反转过，需要再反转回来
+      if (reverseNeeded) {
+        tempTiles.reverse();
+      }
+
+      // 处理后如果转置过，需要再转置回来
+      if (needTranspose) {
+        tempTiles = transpose(tempTiles);
       }
 
       console.log("处理后的value:", tempTiles);
 
-      for (let i = 0; i < tiles.value.length; i++) {
-        tiles.value[i].value = tempTiles[i];
-      }
+      // 赋值回 tiles 数组
+      tiles.value.forEach((tile, index) => {
+        tile.value = tempTiles[index];
+      });
 
       console.log("处理后的Tiles:", tiles.value);
 
+      // 检查游戏是否结束
       checkGameOver();
       generateTile();
-
       console.log("after:", tiles.value);
     };
 
+    // 通用处理合并逻辑，每一行或每一列传入
+    const processTiles = (tiles) => {
+      let newTiles = [];
+      for (let i = 0; i < size.value; i++) {
+        let start = i * size.value;
+        let line = tiles.slice(start, start + size.value);
+        newTiles.push(...mergeTiles(line));
+      }
+      return newTiles;
+    };
+
+    //左移核心行合并操作（递归进行直到操作前后数组完全相同）
     const mergeTiles = (tiles) => {
       console.log("before merge:", tiles);
       let mergedTiles = [];
 
-      // Merge the tiles
       for (let i = 0; i < tiles.length; i++) {
         if (tiles[i] === 0) {
           console.log("空位0跳过");
@@ -177,7 +181,7 @@ export default {
         console.log("填充空位0");
       }
 
-      // 判断是否发生变化，如果有变化则继续递归合并
+      // 判断是否发生变化
       let tilesChanged = false;
       for (let i = 0; i < tiles.length; i++) {
         if (mergedTiles[i] !== tiles[i]) {
@@ -195,6 +199,7 @@ export default {
       }
     };
 
+    //转置（输入输出均为一维数组）
     const transpose = (matrix) => {
       console.log("before transpose:", matrix);
       if (!Array.isArray(matrix)) {
@@ -202,14 +207,14 @@ export default {
         return [];
       }
 
-      // Step 1: Convert the flat array into a 2D array (matrix)
+      //转成二维数组
       let twoDArray = [];
       for (let i = 0; i < matrix.length; i += size.value) {
         twoDArray.push(matrix.slice(i, i + size.value));
       }
       console.log("in transpose:", twoDArray);
 
-      // Step 2: Perform the transpose operation (swap rows and columns)
+      //得到转置后的一维数组
       let transposedArray = [];
       for (let col = 0; col < size.value; col++) {
         for (let row = 0; row < twoDArray.length; row++) {
@@ -221,6 +226,7 @@ export default {
       return transposedArray;
     };
 
+    //检查游戏是否结束
     const checkGameOver = () => {
       // 1. 检查是否有空格
       let emptyTiles = tiles.value.some((tile) => tile.value === 0);

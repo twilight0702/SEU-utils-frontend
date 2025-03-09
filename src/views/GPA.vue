@@ -1,9 +1,12 @@
 <template>
+  <!-- 顶部栏 -->
   <div class="header-container">
     <div class="head">绩点计算器</div>
     <router-link to="/" class="back-link"> 返回主页 </router-link>
   </div>
+
   <div>
+    <!-- cookie输入部分 -->
     <div v-if="grades.length == 0">
       <textarea
         placeholder="请在这里输入你的cookie"
@@ -15,9 +18,11 @@
         不知道如何获取cookie?
       </div>
     </div>
+
+    <!-- 重置操作按钮栏 -->
     <div class="filter-section" v-if="grades.length > 0">
       <div>
-        <!-- 在模板最后添加tooltip元素 -->
+        <!-- 鼠标悬停提示语 -->
         <div
           v-if="tooltip.visible"
           class="tooltip"
@@ -26,7 +31,6 @@
           {{ tooltip.text }}
         </div>
 
-        <!-- 修改重置按钮 -->
         <button
           @mouseenter.mouse="showTooltip('重置筛选条件和选中状态', $event)"
           @mousemove="updatePosition"
@@ -34,7 +38,7 @@
           @click="resetData"
           class="reset-button"
         >
-          重置数据
+          重置筛选条件
         </button>
         <button
           @mouseenter.mouse="
@@ -51,12 +55,14 @@
           重新设置cookie
         </button>
       </div>
+
+      <!--  筛选条件栏 -->
       <div class="filter-group">
         <h3 style="font-weight: bold">学期筛选：</h3>
         <div class="checkbox-group">
           <label v-for="term in termOptions" :key="term">
             <input type="checkbox" v-model="selectedTerms" :value="term" />
-            {{ term }}
+            {{ term === "2023-2024学年2学期" ? "2023-2024学年秋季学期" : term }}
           </label>
         </div>
       </div>
@@ -71,6 +77,8 @@
         </div>
       </div>
     </div>
+
+    <!-- 课程信息显示栏 -->
     <div class="table-container" v-if="grades.length > 0">
       <table>
         <thead>
@@ -92,7 +100,13 @@
                 @change="updateSelection"
               />
             </td>
-            <td>{{ grade.XNXQDM_DISPLAY }}</td>
+            <td>
+              {{
+                grade.XNXQDM_DISPLAY === "2023-2024学年2学期"
+                  ? "2023-2024学年秋季学期"
+                  : grade.XNXQDM_DISPLAY
+              }}
+            </td>
             <td>{{ grade.XSKCM }}</td>
             <td>{{ grade.KCXZDM_DISPLAY }}</td>
             <td>{{ grade.XF }}</td>
@@ -101,10 +115,14 @@
         </tbody>
       </table>
     </div>
+
+    <!-- 绩点计算结果 -->
     <div v-if="grades.length > 0" class="gpa-display">
       <h3 style="font-weight: bold">平均绩点：{{ gpaInfo.gpa }}</h3>
       <h3 style="font-weight: bold">总学分数：{{ gpaInfo.finalCredits }}</h3>
     </div>
+
+    <!-- cookie获取教程提示框和遮罩 -->
     <transition name="modal">
       <div
         v-if="showTutorial"
@@ -132,7 +150,7 @@
                 <li>刷新页面，找到任意以.do结尾的请求</li>
                 <li>在Request Headers中找到Cookie字段</li>
                 <li>
-                  复制整个Cookie值粘贴到输入框（注意不能有遗漏也不能有额外的换行和字符）
+                  复制整个Cookie值粘贴到输入框
                 </li>
               </ol>
             </div>
@@ -159,6 +177,7 @@ import * as path from "@tauri-apps/api/path";
 const cookie = ref("");
 const grades = ref([]);
 
+//统一设置存储基路径（现开发版和构建版都使用本地C:\Users\用户名\AppData\Roaming\com.seu.utils.frontend文件夹）
 async function getStoragePath() {
   const isDev = await invoke("is_dev");
   if (isDev) {
@@ -168,6 +187,7 @@ async function getStoragePath() {
   }
 }
 
+// 页面生成时从本地缓存加载数据
 onMounted(async () => {
   try {
     const basePath = await getStoragePath();
@@ -189,6 +209,7 @@ onMounted(async () => {
     console.error("本地缓存加载失败:", error);
   }
 });
+
 // 获取成绩
 async function fetchGrades2() {
   if (cookie.value.trim() == "") {
@@ -272,14 +293,13 @@ async function fetchGrades2() {
 // 保存数据到本地
 async function saveGradesToLocal(data) {
   try {
-    const basePath = await getStoragePath(); // 新增: 获取存储路径
-    const filePath = await path.join(basePath, "gpa-data", "grades.json"); // 修改: 构建完整路径
+    const basePath = await getStoragePath();
+    const filePath = await path.join(basePath, "gpa-data", "grades.json");
 
     // 确保路径中的所有目录都已存在
     const dirPath = await path.dirname(filePath);
-    await mkdir(dirPath, { recursive: true }); // 新增: 创建目录
+    await mkdir(dirPath, { recursive: true });
 
-    // ✅ 在 `writeTextFile` 里传 `{ dir: path.BaseDirectory.AppData }`
     await writeTextFile(filePath, JSON.stringify(data), {
       create: true,
     });
@@ -299,11 +319,11 @@ function resetData() {
   });
 }
 
-// 清除本地数据
+// 清除本地数据，重新输入cookie
 async function resetCookie() {
   try {
-    const basePath = await getStoragePath(); // 新增: 获取存储路径
-    const filePath = await path.join(basePath, "gpa-data", "grades.json"); // 修改: 构建完整路径
+    const basePath = await getStoragePath();
+    const filePath = await path.join(basePath, "gpa-data", "grades.json");
 
     if (await exists(filePath)) {
       await remove(filePath);
@@ -314,7 +334,7 @@ async function resetCookie() {
   grades.value = [];
 }
 
-// 新增的响应式数据
+// 存储筛选选项
 const selectedTerms = ref([]);
 const selectedTypes = ref(["必修", "限选"]);
 
@@ -328,7 +348,7 @@ const typeOptions = computed(() => {
   return [...new Set(grades.value.map((g) => g.KCXZDM_DISPLAY))];
 });
 
-// 筛选后的成绩数据
+// 根据选择筛选后的成绩数据
 const filteredGrades = computed(() => {
   return grades.value.filter((grade) => {
     const termMatch =
@@ -346,20 +366,21 @@ watch(grades, (newVal) => {
   }
 });
 
+// 计算选中的筛选后的成绩数据
 const selectedFilteredGrades = computed(() =>
   filteredGrades.value.filter((grade) => grade.selected)
 );
 
-// 添加绩点计算函数
+// 绩点计算函数
 const gpaInfo = computed(() => {
   let totalPoints = 0;
   let totalCredits = 0;
 
   selectedFilteredGrades.value.forEach((grade) => {
     // 成绩处理逻辑
-    const score = grade.XSZCJMC; // 假设成绩是数值类型
+    const score = grade.XSZCJMC; 
     const credit = parseFloat(grade.XF); // 学分
-    let point = 0; //绩点
+    let point = 0; //当前这门课的绩点
 
     // 等级制成绩判断
     if (isNaN(score)) {
@@ -406,14 +427,14 @@ const gpaInfo = computed(() => {
     }
   });
 
-  // 处理除零错误并保留两位小数
+  // 处理除零错误并保留四位小数
   return {
     gpa: totalCredits > 0 ? (totalPoints / totalCredits).toFixed(4) : "0.0000",
     finalCredits: totalCredits,
   };
 });
 
-// 新增tooltip相关逻辑
+// 新增tooltip相关逻辑（鼠标悬浮显示提示文字）
 const tooltip = reactive({
   visible: false,
   text: "",
@@ -443,7 +464,7 @@ const hideTooltip = () => {
   tooltip.visible = false;
 };
 
-// 添加响应式状态
+// 用于判断是否显示cookie获取教程
 const showTutorial = ref(false);
 </script>
 

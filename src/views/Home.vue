@@ -16,6 +16,7 @@ import { useRouter } from "vue-router";
 import "animate.css";
 import { ref } from "vue";
 
+//标题动画效果
 const titleClass = ref(""); // 绑定 h1 的动态类
 
 const playEffect = () => {
@@ -25,6 +26,7 @@ const playEffect = () => {
   }, 1000);
 };
 
+//路由跳转函数
 const router = useRouter();
 const goToGPA = () => {
   router.push("/gpa"); // 跳转到绩点计算器页面
@@ -34,6 +36,7 @@ const goto2048 = () => {
   router.push("/game-2048"); // 跳转到2048页面
 };
 </script>
+
 <style scoped>
 .container {
   width: 50vw;
