@@ -7,7 +7,9 @@
 ### **主要特点**
 
  ✅ 现代化 UI，界面美观
+
  ✅ 绩点计算器：自动获取课程成绩，可筛选课程动态计算绩点
+ 
  ✅ 2048 游戏：本地存储最高分记录
 
 ------
@@ -32,9 +34,9 @@
 
   **示例截图**：
 
-  ![要脸给自己成绩打码了](.\images-for-readme\S1.png)
+  ![要脸给自己成绩打码了](./images-for-readme/S1.png)
 
-  ![打码2.0](.\images-for-readme\S2.png)
+  ![打码2.0](./images-for-readme/S2.png)
 
   
 
@@ -52,7 +54,7 @@
 
   **示例截图**：
 
-  ![游戏截图](.\images-for-readme\S4.png)
+  ![游戏截图](./images-for-readme/S4.png)
 
   
 
@@ -130,7 +132,7 @@ npm install -g @tauri-apps/cli
 
 欢迎任何贡献！如果你有想法加入其他常用工具或发现 bug，请按照以下方式参与：
 
-1. **提 Issue**：在 [Issues](https://github.com/你的仓库/issues) 页面提交问题或建议。
+1. **提 Issue**：在 Issue 页面提交问题或建议。
 2. **Fork & 提交 PR**：Fork 本仓库后，提交 PR 进行代码贡献。
 3. **讨论**：有任何问题可在 Issue 下交流。
 
